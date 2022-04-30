@@ -1,0 +1,3 @@
+- home html (done)
+- static/css (done)
+- create server
