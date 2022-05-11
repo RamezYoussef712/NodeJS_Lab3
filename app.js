@@ -1,107 +1,145 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
 
-function paramsToObject(entries) {
-  const result = {}
-  let jsonObject = {}
-  for (const [key, value] of entries) { // each 'entry' is a [key, value] tupple
-    result[key] = value;
-  }
-  emailKey = result.email;
-  delete result.email;
-  jsonObject[emailKey] = result;
-  return jsonObject;
-}
 
 const server = http.createServer();
-server.on('request', function (req, res) {
-  if (req.method === 'GET') {
-    if (req.url === '/') {
-      let html = fs.readFileSync('./index.html', 'utf-8');
-      res.writeHead(200, { 'content-type': 'text/html' });
-      res.write(html);
-      res.end();
-    } else if (req.url.match("\.css$")) {
-      var cssPath = path.join(__dirname, req.url);
-      var fileStream = fs.createReadStream(cssPath, "UTF-8");
-      res.writeHead(200, { "Content-Type": "text/css" });
-      fileStream.pipe(res);
-    }
-  }
-  else if (req.method === 'POST') {
-    console.log("inside post method");
-    if (req.url === '/signup') {
-      //console.log("inside signup");
-      let body = [];
-      req.on('data', (chunk) => {
-        body.push(chunk);
-      }).on('end', () => {
-        body = Buffer.concat(body).toString();
-        const urlParams = new URLSearchParams(body);
-        console.log(urlParams);
-        const entries = urlParams.entries(); //returns an iterator of decoded [key,value] tuples
-        console.log(entries);
-        const params = paramsToObject(entries); //{abc:"foo",def:"[asf]",xyz:"5"}
-        //console.log(params);
-
-        fs.readFile('db.json', function (err, data) {
-          let dbData = JSON.parse(data);
-          dbData.push(params);
-          fs.writeFileSync('./db.json', JSON.stringify(dbData));
-        })
-        //let postData = JSON.stringify([params]);
-      });
-      res.writeHead(200, { 'content-type': 'application/json' })
-      res.end();
-    } else if (req.url === '/login') {
-      console.log("inside login");
-      let body = [];
-      req.on('data', (chunk) => {
-        body.push(chunk);
-      }).on('end', () => {
-        body = Buffer.concat(body).toString();
-        const urlParams = new URLSearchParams(body);
-        const entries = urlParams.entries(); //returns an iterator of decoded [key,value] tuples
-        const params = paramsToObject(entries); //{abc:"foo",def:"[asf]",xyz:"5"}
-        console.log(params);
-
-        fs.readFile('db.json', function (err, data) {
-          console.log("inside read file");
-          let dbData = JSON.parse(data);
-          console.log(dbData);
-          for (let i = 0; i < dbData.length; i++) {
-            if (dbData[i].email === params.email) {
-              if (dbData[i].password === params.password) {
-                console.log("Matching !!");
-                break;
-              } else {
-                console.log("Wrong password !!");
+server
+  .on("request", function (req, res) {
+    if (req.method === "GET") {
+      if (req.url === "/") {
+        let html = fs.readFileSync("./index.html", "utf-8");
+        res.writeHead(200, {
+          "content-type": "text/html",
+        });
+        res.write(html);
+        res.end();
+      } else if (req.url.match(".css$")) {
+        var cssPath = path.join(__dirname, req.url);
+        var fileStream = fs.createReadStream(cssPath, "UTF-8");
+        res.writeHead(200, {
+          "Content-Type": "text/css",
+        });
+        fileStream.pipe(res);
+      }
+    } else if (req.method === "POST") {
+      console.log("inside post method");
+      if (req.url === "/signup") {
+        console.log("inside signup");
+        let body = [];
+        req
+          .on("data", (chunk) => {
+            body.push(chunk);
+          })
+          .on("end", () => {
+            body = Buffer.concat(body).toString();
+            const urlParams = new URLSearchParams(body);
+            console.log(urlParams);
+            let formData = {};
+            urlParams.forEach((key, value) => {
+              formData[value] = key;
+              return formData;
+            });
+            console.log(formData);
+            let emailParam = formData.email;
+            let isExists = false;
+            let dbData = {};
+            let dataToPush = {};
+            let data = fs.readFileSync("./db.json", {
+              encoding: "utf8",
+              flag: "r",
+            });
+            dbData = JSON.parse(data);
+            for (let item of dbData) {
+              if (item[emailParam]) {
+                isExists = true;
                 break;
               }
-            } 
-            console.log("User not found");
-          }
-          
-          //   for (let i=0;i<dbData.length;i++) {
-          //     console.log(dbData[i].email);
-          //  }
-        })
-      });
-      res.writeHead(200, { 'content-type': 'application/json' })
-      res.end();
+            }
+            if (isExists) {
+              sendResponse(
+                res,
+                400,
+                JSON.stringify({
+                  error: "Email already exists",
+                })
+              );
+            } else {
+              dataToPush = {
+                [formData.email]: {
+                  password: formData.password,
+                  username: formData.username,
+                },
+              };
+              try {
+                dbData.push(dataToPush);
+                fs.writeFileSync("./db.json", JSON.stringify(dbData));
+                res.writeHead(200, {'Content-Type': 'application/json'});
+                res.write('Signed up successfully!');
+                res.end();
+              } catch (error) {
+                res.writeHead(505, {'Content-Type': 'application/json'});
+                res.write('Server Error');
+                res.end();
+              }
+            }
+          });
+      } else if (req.url === "/login") {
+        console.log("inside login");
+        let body = [];
+        req
+          .on("data", (chunk) => {
+            body.push(chunk);
+          })
+          .on("end", () => {
+            body = Buffer.concat(body).toString();
+            const urlParams = new URLSearchParams(body);
+            console.log(urlParams);
+            let formData = {};
+            urlParams.forEach((key, value) => {
+              formData[value] = key;
+              return formData;
+            });
+            console.log(formData);
+            let emailParam = formData.email;
+            let isExists = false;
+            let dbData = {};
+            let dataToValidate = {};
+            let data = fs.readFileSync("./db.json", {
+              encoding: "utf8",
+              flag: "r",
+            });
+            dbData = JSON.parse(data);
+            for (let item of dbData) {
+              if (item[emailParam]) {
+                dataToValidate = {
+                  'email': item[emailParam],
+                  'password': item[emailParam].password
+                }
+                isExists = true;
+                break;
+              }
+            }
+            if (isExists) {
+              if (dataToValidate.password == formData.password) {
+                console.log("Matching");
+                res.writeHead(200, {'Content-Type': 'application/json'});
+                res.write('Logged in successfully!');
+                res.end();
+              } else {
+                res.writeHead(403, {'Content-Type': 'application/json'});
+                res.write('Wrong Credentials');
+                res.end();
+                console.log("Wrong Credentials");
+              }
+            } else {
+              res.writeHead(404, {'Content-Type': 'application/json'});
+              res.write('Not Found!');
+              res.end();
+              console.log("not found");
+            }
+          });
+      }
     }
-  }
-}).listen(3000);
-
-
-// if (current) {
-//   if (current.password === password) {
-//     sendResponse(res, 200, JSON.stringify({"success": true, username: current.username}));
-//   } else {
-//     sendResponse(res, 403, JSON.stringify({"error": "Wrong Password"}));
-//   }
-// } else {
-//   sendResponse(res, 403, JSON.stringify({"error": "Wrong Email"}));
-// }
-// break;
+  })
+  .listen(3000);
