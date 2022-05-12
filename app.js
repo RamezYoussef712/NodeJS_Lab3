@@ -57,14 +57,10 @@ server
               }
             }
             if (isExists) {
-              sendResponse(
-                res,
-                400,
-                JSON.stringify({
-                  error: "Email already exists",
-                })
-              );
-            } else {
+                res.writeHead(408, {'Content-Type': 'application/json'});
+                res.write('Email already exists');
+                res.end();
+              } else {
               dataToPush = {
                 [formData.email]: {
                   password: formData.password,
